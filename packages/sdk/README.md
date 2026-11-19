@@ -39,9 +39,13 @@ process.on("SIGTERM", () => void worker.stop({ graceMs: 30_000 }));
 
 // From your application:
 const client = new StrandClient({ connectionString: process.env.DATABASE_URL! });
-const run = await client.start(fulfillOrder, { orderId: "o_1", amountCents: 4200 }, {
-  idempotencyKey: "order:o_1",
-});
+const run = await client.start(
+  fulfillOrder,
+  { orderId: "o_1", amountCents: 4200 },
+  {
+    idempotencyKey: "order:o_1",
+  },
+);
 await client.signal(run.id, "fraud-review", { ok: true });
 const done = await client.waitForResult(run.id, { timeoutMs: 30_000 });
 ```
@@ -82,15 +86,15 @@ Two consequences to design for:
 
 ### `ctx`
 
-| Member | Meaning |
-| --- | --- |
-| `step(name, fn, { retry }?)` | Run `fn` once and store its result. Retries on failure with backoff; once attempts run out it throws `StepFailedError` into your code, which can catch it and compensate |
-| `sleep(name, duration)` | Durable timer. Durations are milliseconds or `"500ms"`, `"30s"`, `"10m"`, `"2h"`, `"1d"` |
-| `waitForSignal(name, { timeout }?)` | Resolves `{ timedOut: false, payload }` or `{ timedOut: true }`. Signals sent early are buffered and consumed in order |
-| `now()` | Current time, recorded so a resumed run sees the same value |
-| `idempotencyKey(stepName)` | Stable key for the step, for external idempotency |
-| `signal` | An `AbortSignal` that fires if the worker loses the run or shuts down; pass it to long operations |
-| `runId`, `workflow`, `attempt`, `log` | Run metadata and a logger |
+| Member                                | Meaning                                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `step(name, fn, { retry }?)`          | Run `fn` once and store its result. Retries on failure with backoff; once attempts run out it throws `StepFailedError` into your code, which can catch it and compensate |
+| `sleep(name, duration)`               | Durable timer. Durations are milliseconds or `"500ms"`, `"30s"`, `"10m"`, `"2h"`, `"1d"`                                                                                 |
+| `waitForSignal(name, { timeout }?)`   | Resolves `{ timedOut: false, payload }` or `{ timedOut: true }`. Signals sent early are buffered and consumed in order                                                   |
+| `now()`                               | Current time, recorded so a resumed run sees the same value                                                                                                              |
+| `idempotencyKey(stepName)`            | Stable key for the step, for external idempotency                                                                                                                        |
+| `signal`                              | An `AbortSignal` that fires if the worker loses the run or shuts down; pass it to long operations                                                                        |
+| `runId`, `workflow`, `attempt`, `log` | Run metadata and a logger                                                                                                                                                |
 
 Repeated step names (in a loop) get distinct keys (`send`, `send#2`, ...).
 
