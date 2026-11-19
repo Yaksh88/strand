@@ -36,3 +36,23 @@ export class WorkflowNotFoundError extends StrandError {}
 export class RunNotFoundError extends StrandError {}
 /** The run is in a state that doesn't allow the operation, e.g. retrying a run that hasn't failed. */
 export class InvalidStateError extends StrandError {}
+
+export class InvalidCronError extends StrandError {}
+
+/** `waitForResult` gave up before the run reached a final state. */
+export class WaitTimeoutError extends StrandError {}
+
+export class RunFailedError extends StrandError {
+  constructor(
+    readonly runId: string,
+    readonly failure: SerializedError,
+  ) {
+    super(`Run ${runId} failed: ${failure.message}`);
+  }
+}
+
+export class RunCancelledError extends StrandError {
+  constructor(readonly runId: string) {
+    super(`Run ${runId} was cancelled`);
+  }
+}

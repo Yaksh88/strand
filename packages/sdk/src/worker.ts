@@ -9,6 +9,7 @@ import { migrate } from "./db/migrate.js";
 import { createPool } from "./db/pool.js";
 import { LeaseLostError, serializeError, type SerializedError } from "./errors.js";
 import { WakeListener } from "./notify.js";
+import { Scheduler } from "./scheduler.js";
 import { Store, WAKE_CHANNEL } from "./store.js";
 import type { Lease, RunRecord } from "./types.js";
 import type { AnyWorkflow } from "./workflow.js";
@@ -84,6 +85,7 @@ export class Worker extends EventEmitter<WorkerEvents> {
   private store!: Store;
   private ownsPool = false;
   private listener: WakeListener | undefined;
+  private scheduler: Scheduler | undefined;
   private heartbeatTimer: NodeJS.Timeout | undefined;
   private loopPromise: Promise<void> = Promise.resolve();
   private beating = false;
@@ -135,6 +137,11 @@ export class Worker extends EventEmitter<WorkerEvents> {
     );
     await this.listener.start();
 
+    if (this.options.scheduler !== false) {
+      this.scheduler = new Scheduler({ pool: this.pool, store: this.store, logger: this.logger });
+      await this.scheduler.start();
+    }
+
     this.heartbeatTimer = setInterval(() => void this.heartbeat(), this.leaseMs / 3);
     this.loopPromise = this.loop();
   }
@@ -151,6 +158,7 @@ export class Worker extends EventEmitter<WorkerEvents> {
     clearInterval(this.heartbeatTimer);
     this.poke();
     await this.listener?.stop();
+    await this.scheduler?.stop();
     await this.loopPromise;
 
     const running = [...this.inFlight.values()];
