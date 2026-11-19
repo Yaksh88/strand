@@ -688,6 +688,33 @@ export class Store {
     });
   }
 
+  // ---- worker registry -------------------------------------------------------------------------
+
+  async registerWorker(p: {
+    id: string;
+    hostname: string;
+    pid: number;
+    workflows: string[];
+    concurrency: number;
+  }): Promise<void> {
+    await this.pool.query(
+      `insert into strand_workers (id, hostname, pid, workflows, concurrency)
+       values ($1, $2, $3, $4::text[], $5)
+       on conflict (id) do update
+          set hostname = excluded.hostname, pid = excluded.pid, workflows = excluded.workflows,
+              concurrency = excluded.concurrency, started_at = now(), last_seen_at = now()`,
+      [p.id, p.hostname, p.pid, p.workflows, p.concurrency],
+    );
+  }
+
+  async touchWorker(id: string): Promise<void> {
+    await this.pool.query("update strand_workers set last_seen_at = now() where id = $1", [id]);
+  }
+
+  async removeWorker(id: string): Promise<void> {
+    await this.pool.query("delete from strand_workers where id = $1", [id]);
+  }
+
   // ---- reading --------------------------------------------------------------------------------
 
   async getRun(runId: string): Promise<RunRecord | null> {
