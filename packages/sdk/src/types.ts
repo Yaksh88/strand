@@ -92,3 +92,14 @@ export interface Lease {
   token: string;
   owner: string;
 }
+
+export interface ScheduleRecord {
+  id: string;
+  workflow: string;
+  cron: string;
+  timezone: string;
+  input: unknown;
+  enabled: boolean;
+  nextFireAt: Date;
+  createdAt: Date;
+}

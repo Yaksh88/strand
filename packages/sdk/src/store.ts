@@ -9,6 +9,7 @@ import type {
   Lease,
   RunRecord,
   RunStatus,
+  ScheduleRecord,
   SignalRecord,
   StepRecord,
   StepStatus,
@@ -97,6 +98,28 @@ const toRun = (row: RunRow): RunRecord => ({
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   completedAt: row.completed_at,
+});
+
+interface ScheduleRow {
+  id: string;
+  workflow: string;
+  cron: string;
+  timezone: string;
+  input: unknown;
+  enabled: boolean;
+  next_fire_at: Date;
+  created_at: Date;
+}
+
+const toSchedule = (row: ScheduleRow): ScheduleRecord => ({
+  id: row.id,
+  workflow: row.workflow,
+  cron: row.cron,
+  timezone: row.timezone,
+  input: row.input,
+  enabled: row.enabled,
+  nextFireAt: row.next_fire_at,
+  createdAt: row.created_at,
 });
 
 const toStep = (row: StepRow): StepRecord => ({
@@ -685,6 +708,95 @@ export class Store {
       await this.insertEvents(client, [{ runId, type: "run_retried" }]);
       await this.notify(client, run.workflow);
       return run;
+    });
+  }
+
+  // ---- schedules ----------------------------------------------------------------------------
+
+  async upsertSchedule(p: {
+    id: string;
+    workflow: string;
+    cron: string;
+    timezone: string;
+    input: unknown;
+    enabled: boolean;
+    nextFireAt: Date;
+  }): Promise<ScheduleRecord> {
+    const { rows } = await this.pool.query<ScheduleRow>(
+      `insert into strand_schedules (id, workflow, cron, timezone, input, enabled, next_fire_at)
+       values ($1, $2, $3, $4, $5::jsonb, $6, $7)
+       on conflict (id) do update
+          set workflow = excluded.workflow, cron = excluded.cron, timezone = excluded.timezone,
+              input = excluded.input, enabled = excluded.enabled,
+              next_fire_at = excluded.next_fire_at
+       returning *`,
+      [p.id, p.workflow, p.cron, p.timezone, toJson(p.input), p.enabled, p.nextFireAt],
+    );
+    return toSchedule(rows[0] as ScheduleRow);
+  }
+
+  async deleteSchedule(id: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query("delete from strand_schedules where id = $1", [id]);
+    return rowCount === 1;
+  }
+
+  async listSchedules(): Promise<ScheduleRecord[]> {
+    const { rows } = await this.pool.query<ScheduleRow>(
+      "select * from strand_schedules order by id",
+    );
+    return rows.map(toSchedule);
+  }
+
+  /**
+   * Start a run for every enabled schedule that is due at `now`, and move each to its next slot.
+   *
+   * Safe to call from several processes at once: due schedules are locked with SKIP LOCKED, and
+   * each run's idempotency key names its schedule and slot, so a slot can never fire twice. A
+   * schedule that is several slots behind (the scheduler was down) fires once, for the oldest
+   * missed slot, and then resumes from the next slot after `now`. Missed slots aren't backfilled.
+   */
+  async fireDueSchedules(
+    now: Date,
+    nextAfter: (schedule: ScheduleRecord, after: Date) => Date,
+  ): Promise<number> {
+    return this.tx(async (client) => {
+      const due = await client.query<ScheduleRow>(
+        `select * from strand_schedules
+          where enabled and next_fire_at <= $1
+          order by next_fire_at
+            for update skip locked`,
+        [now],
+      );
+      let fired = 0;
+      for (const row of due.rows) {
+        const schedule = toSchedule(row);
+        const inserted = await client.query<{ id: string }>(
+          `insert into strand_runs (id, workflow, status, input, idempotency_key, schedule_id)
+           values ($1, $2, 'queued', $3::jsonb, $4, $5)
+           on conflict (idempotency_key) do nothing
+           returning id`,
+          [
+            randomUUID(),
+            schedule.workflow,
+            toJson(schedule.input),
+            `schedule:${schedule.id}:${schedule.nextFireAt.toISOString()}`,
+            schedule.id,
+          ],
+        );
+        const created = inserted.rows[0];
+        if (created) {
+          fired += 1;
+          await this.insertEvents(client, [
+            { runId: created.id, type: "run_created", data: { scheduleId: schedule.id } },
+          ]);
+          await this.notify(client, schedule.workflow);
+        }
+        await client.query("update strand_schedules set next_fire_at = $2 where id = $1", [
+          schedule.id,
+          nextAfter(schedule, now),
+        ]);
+      }
+      return fired;
     });
   }
 
