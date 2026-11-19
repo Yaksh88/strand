@@ -13,3 +13,6 @@ export type { SignalResult, StepOptions, WorkflowContext } from "./context.js";
 export { backoffDelay } from "./backoff.js";
 export { Worker } from "./worker.js";
 export type { RunEvent, WorkerOptions } from "./worker.js";
+export { StrandClient } from "./client.js";
+export type { ScheduleInput, StartOptions } from "./client.js";
+export { nextFireAfter, Scheduler } from "./scheduler.js";
