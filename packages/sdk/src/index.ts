@@ -7,6 +7,7 @@ export * from "./types.js";
 export { createPool } from "./db/pool.js";
 export { migrate } from "./db/migrate.js";
 export { Store } from "./store.js";
+export type { StatsResult, WorkerRecord, WorkflowSummary } from "./store.js";
 export { workflow } from "./workflow.js";
 export type { AnyWorkflow, WorkflowDefinition, WorkflowOptions } from "./workflow.js";
 export type { SignalResult, StepOptions, WorkflowContext } from "./context.js";

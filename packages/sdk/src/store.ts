@@ -168,6 +168,40 @@ function decodeCursor(cursor: string): [string, string] {
   return [createdAt, id];
 }
 
+export interface StatsResult {
+  totals: {
+    started: number;
+    completed: number;
+    failed: number;
+    queued: number;
+    running: number;
+    sleeping: number;
+    waiting: number;
+  };
+  series: { ts: Date; started: number; completed: number; failed: number }[];
+}
+
+export interface WorkflowSummary {
+  workflow: string;
+  total: number;
+  running: number;
+  failed: number;
+  completed: number;
+  p50Ms: number | null;
+  p95Ms: number | null;
+}
+
+export interface WorkerRecord {
+  id: string;
+  hostname: string;
+  pid: number;
+  workflows: string[];
+  concurrency: number;
+  startedAt: Date;
+  lastSeenAt: Date;
+  alive: boolean;
+}
+
 export interface NewEvent {
   runId: string;
   type: EventType;
@@ -798,6 +832,138 @@ export class Store {
       }
       return fired;
     });
+  }
+
+  // ---- statistics -----------------------------------------------------------------------------
+
+  /** Run counts for the dashboard: totals over the window plus a bucketed time series. */
+  async stats(p: { since: Date; bucketMs: number }): Promise<StatsResult> {
+    const bucket = `${p.bucketMs} milliseconds`;
+    const origin = new Date(0);
+    const [totals, current, series] = await Promise.all([
+      this.pool.query<{ started: string; completed: string; failed: string }>(
+        `select count(*) filter (where created_at >= $1) as started,
+                count(*) filter (where status = 'completed' and completed_at >= $1) as completed,
+                count(*) filter (where status = 'failed' and completed_at >= $1) as failed
+           from strand_runs
+          where created_at >= $1 or completed_at >= $1`,
+        [p.since],
+      ),
+      this.pool.query<{ status: RunStatus; n: string }>(
+        "select status, count(*) as n from strand_runs group by status",
+      ),
+      this.pool.query<{ ts: Date; started: string; completed: string; failed: string }>(
+        `with started as (
+           select date_bin($1::interval, created_at, $2::timestamptz) as ts, count(*) as n
+             from strand_runs where created_at >= $3 group by 1
+         ), finished as (
+           select date_bin($1::interval, completed_at, $2::timestamptz) as ts,
+                  count(*) filter (where status = 'completed') as completed,
+                  count(*) filter (where status = 'failed') as failed
+             from strand_runs where completed_at >= $3 group by 1
+         )
+         select coalesce(s.ts, f.ts) as ts,
+                coalesce(s.n, 0) as started,
+                coalesce(f.completed, 0) as completed,
+                coalesce(f.failed, 0) as failed
+           from started s full join finished f on s.ts = f.ts
+          order by 1`,
+        [bucket, origin, p.since],
+      ),
+    ]);
+
+    const byStatus = Object.fromEntries(current.rows.map((r) => [r.status, Number(r.n)]));
+    const row = totals.rows[0];
+    return {
+      totals: {
+        started: Number(row?.started ?? 0),
+        completed: Number(row?.completed ?? 0),
+        failed: Number(row?.failed ?? 0),
+        queued: byStatus["queued"] ?? 0,
+        running: byStatus["running"] ?? 0,
+        sleeping: byStatus["sleeping"] ?? 0,
+        waiting: byStatus["waiting"] ?? 0,
+      },
+      series: series.rows.map((r) => ({
+        ts: r.ts,
+        started: Number(r.started),
+        completed: Number(r.completed),
+        failed: Number(r.failed),
+      })),
+    };
+  }
+
+  /** Per-workflow counts and duration percentiles over the last 24 hours. */
+  async workflowSummaries(): Promise<WorkflowSummary[]> {
+    const { rows } = await this.pool.query<{
+      workflow: string;
+      total: string;
+      running: string;
+      failed: string;
+      completed: string;
+      p50: number | null;
+      p95: number | null;
+    }>(
+      `select workflow,
+              count(*) as total,
+              count(*) filter (where status = 'running') as running,
+              count(*) filter (where status = 'failed') as failed,
+              count(*) filter (where status = 'completed') as completed,
+              percentile_cont(0.5) within group (
+                order by extract(epoch from (completed_at - created_at)) * 1000
+              ) filter (where status = 'completed') as p50,
+              percentile_cont(0.95) within group (
+                order by extract(epoch from (completed_at - created_at)) * 1000
+              ) filter (where status = 'completed') as p95
+         from strand_runs
+        where created_at >= now() - interval '24 hours'
+        group by workflow
+        order by total desc, workflow`,
+    );
+    return rows.map((r) => ({
+      workflow: r.workflow,
+      total: Number(r.total),
+      running: Number(r.running),
+      failed: Number(r.failed),
+      completed: Number(r.completed),
+      p50Ms: r.p50 === null ? null : Math.round(r.p50),
+      p95Ms: r.p95 === null ? null : Math.round(r.p95),
+    }));
+  }
+
+  /** A worker counts as alive if it has heart-beaten in the last 30 seconds. */
+  async listWorkers(): Promise<WorkerRecord[]> {
+    const { rows } = await this.pool.query<{
+      id: string;
+      hostname: string;
+      pid: number;
+      workflows: string[];
+      concurrency: number;
+      started_at: Date;
+      last_seen_at: Date;
+      alive: boolean;
+    }>(
+      `select *, last_seen_at > now() - interval '30 seconds' as alive
+         from strand_workers order by started_at, id`,
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      hostname: r.hostname,
+      pid: r.pid,
+      workflows: r.workflows,
+      concurrency: r.concurrency,
+      startedAt: r.started_at,
+      lastSeenAt: r.last_seen_at,
+      alive: r.alive,
+    }));
+  }
+
+  /** Run counts by status, for metrics. */
+  async countByStatus(): Promise<Record<string, number>> {
+    const { rows } = await this.pool.query<{ status: string; n: string }>(
+      "select status, count(*) as n from strand_runs group by status",
+    );
+    return Object.fromEntries(rows.map((r) => [r.status, Number(r.n)]));
   }
 
   // ---- worker registry -------------------------------------------------------------------------
