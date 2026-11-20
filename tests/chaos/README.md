@@ -6,7 +6,7 @@ always uses its stored step results.**
 
 ```bash
 pnpm --filter @strand/chaos chaos                                # defaults: 500 runs, 4 workers
-pnpm --filter @strand/chaos chaos -- --runs 1000 --workers 4 --kill-every 800 --duration 150
+pnpm --filter @strand/chaos chaos --runs 1000 --workers 4 --kill-every 800 --duration 150
 ```
 
 ## What it does

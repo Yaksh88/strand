@@ -6,7 +6,7 @@ finish them all.
 
 ```bash
 pnpm --filter @strand/benchmarks bench                      # defaults
-pnpm --filter @strand/benchmarks bench -- --workers 2,4 --runs 20000 --steps 5
+pnpm --filter @strand/benchmarks bench --workers 2,4 --runs 20000 --steps 5
 ```
 
 It needs a local Postgres (`DATABASE_URL`, default `postgres://localhost/strand_test`). Each

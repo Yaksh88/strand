@@ -73,7 +73,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @strand/sdk build
       - name: Kill and freeze workers while runs are in flight
-        run: pnpm --filter @strand/chaos chaos -- --runs 400 --workers 3 --kill-every 700 --duration 90
+        run: pnpm --filter @strand/chaos chaos --runs 400 --workers 3 --kill-every 700 --duration 90
 
   docker:
     name: Docker images
