@@ -1,0 +1,21 @@
+{
+  "name": "@strand/benchmarks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "bench": "tsup && node dist/throughput.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'benchmarks are run with: pnpm --filter @strand/benchmarks bench'"
+  },
+  "dependencies": {
+    "@strand/sdk": "workspace:*",
+    "pino": "^10.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsup": "^9.0.0"
+  }
+}
