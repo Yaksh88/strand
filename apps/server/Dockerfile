@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Build from the repository root:  docker build -f apps/server/Dockerfile .
 
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /repo
 RUN corepack enable
 COPY . .
@@ -10,7 +10,7 @@ RUN pnpm --filter @strand/sdk --filter @strand/server --filter @strand/dashboard
 # A self-contained copy of the server with only its production dependencies.
 RUN pnpm --filter @strand/server --prod --legacy deploy /out
 
-FROM node:22-alpine
+FROM node:26-alpine
 WORKDIR /app
 COPY --from=build /out ./
 COPY --from=build /repo/apps/dashboard/dist ./dashboard
