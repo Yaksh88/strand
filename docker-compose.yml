@@ -1,18 +1,76 @@
-# Postgres for local development and tests, for contributors without a local install:
-#   docker compose up -d
-# The default test database is postgres://localhost/strand_test; with this container use
-#   DATABASE_URL=postgres://strand:strand@localhost:5432/strand_test
+# Postgres and the Strand server:
+#   docker compose up --build
+# Add the demo (two workers that run an order-fulfillment workflow against flaky fake
+# services, plus a batch of 30 orders):
+#   docker compose --profile demo up --build
+# Then open http://localhost:4000 and watch the runs.
+#
+# For development you only need the database:
+#   docker compose up -d postgres
+# and the test suites use DATABASE_URL=postgres://strand:strand@localhost:5432/strand_test
+name: strand
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: strand
       POSTGRES_PASSWORD: strand
-      POSTGRES_DB: strand_test
+      POSTGRES_DB: strand
     ports:
       - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U strand"]
+      test: ["CMD-SHELL", "pg_isready -U strand -d strand"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    environment:
+      DATABASE_URL: postgres://strand:strand@postgres:5432/strand
+      # Set a token to require `Authorization: Bearer <token>` on /v1 (and enter it in Settings).
+      STRAND_API_TOKEN: ${STRAND_API_TOKEN:-}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    profiles: [demo]
+    build:
+      context: .
+      dockerfile: examples/order-fulfillment/Dockerfile
+    environment:
+      DATABASE_URL: postgres://strand:strand@postgres:5432/strand
+      FAILURE_RATE: "0.2"
+      LOG_LEVEL: warn
+    deploy:
+      replicas: 2
+    depends_on:
+      server:
+        condition: service_started
+    restart: unless-stopped
+
+  orders:
+    profiles: [demo]
+    build:
+      context: .
+      dockerfile: examples/order-fulfillment/Dockerfile
+    command: ["node", "dist/start-orders.js", "30"]
+    environment:
+      DATABASE_URL: postgres://strand:strand@postgres:5432/strand
+    depends_on:
+      worker:
+        condition: service_started
+    restart: "no"
+
+volumes:
+  postgres-data:
