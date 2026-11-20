@@ -1,0 +1,183 @@
+/* The run timeline: one thread through time, a knot per step. */
+.timeline {
+  position: relative;
+  margin: 0;
+  padding: 4px 0 4px 34px;
+  list-style: none;
+}
+
+.timeline__thread {
+  position: absolute;
+  left: 11px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  background: var(--indigo);
+  border-radius: 1px;
+  transform-origin: top;
+  animation: draw 0.9s cubic-bezier(0.3, 0.7, 0.2, 1) both;
+}
+
+@keyframes draw {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(150px, 230px) minmax(0, 1fr);
+  gap: 4px 20px;
+  padding: 12px 0;
+}
+
+.timeline__node {
+  position: absolute;
+  left: -30px;
+  top: 17px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ground);
+  border: 3px solid var(--moss);
+}
+
+.timeline__item--retrying .timeline__node {
+  border-color: var(--saffron);
+}
+
+.timeline__item--failed .timeline__node {
+  border-color: var(--madder);
+  background: var(--madder);
+  border-radius: 3px;
+}
+
+.timeline__name {
+  font-family: var(--font-code);
+  font-size: 0.875rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.timeline__kind {
+  color: var(--ink-2);
+  font-size: var(--step--1);
+}
+
+.timeline__track {
+  position: relative;
+  height: 24px;
+  border-radius: var(--radius-s);
+  background: var(--rule-soft);
+}
+
+.timeline__bar {
+  height: 100%;
+  width: calc(var(--w) * 100%);
+  border-radius: var(--radius-s);
+  background: var(--moss);
+}
+
+.timeline__item--retrying .timeline__bar {
+  background: var(--saffron);
+}
+
+.timeline__item--failed .timeline__bar {
+  background: var(--madder);
+}
+
+/* Sleeps and waits are time spent doing nothing, so they are hatched rather than solid. */
+.timeline__item--sleep .timeline__bar,
+.timeline__item--wait .timeline__bar {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--saffron) 0 4px,
+    color-mix(in srgb, var(--saffron) 25%, transparent) 4px 8px
+  );
+}
+
+.timeline__bar--ongoing {
+  background-image: linear-gradient(90deg, currentcolor, transparent);
+}
+
+.timeline__meta {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  color: var(--ink-2);
+  font-size: var(--step--1);
+}
+
+.timeline__retry-mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  background: var(--saffron);
+}
+
+.timeline__error {
+  grid-column: 2;
+  margin: 0;
+  color: var(--madder);
+  font-size: var(--step--1);
+}
+
+/* A handover: the thread breaks where one worker lost the run and another picked it up. */
+.timeline__item--recovery {
+  display: block;
+  padding: 18px 0;
+  color: var(--madder);
+  font-weight: 550;
+}
+
+.timeline__item--recovery .timeline__break {
+  position: absolute;
+  left: -30px;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  background: var(--ground);
+}
+
+.timeline__item--recovery .timeline__break::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  bottom: 8px;
+  border-left: 2px dashed var(--madder);
+}
+
+.timeline__item--recovery span {
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+.owners {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.owners__chip {
+  padding: 1px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-family: var(--font-code);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 720px) {
+  .timeline__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timeline__meta,
+  .timeline__error {
+    grid-column: 1;
+  }
+}
