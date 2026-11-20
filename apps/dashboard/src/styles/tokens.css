@@ -1,0 +1,62 @@
+/* Natural-dye palette: indigo for work in progress, moss for done, saffron for waiting,
+   madder for failure. Roles, not hues: components only reference these names. */
+:root {
+  --ground: #f2f1f6;
+  --surface: #fbfbfd;
+  --ink: #1a1b2e;
+  --ink-2: #55566e;
+  --rule: #d5d4e0;
+  --rule-soft: #e4e3ec;
+  --hover: #e8e7f0;
+
+  --indigo: #3b3fa8;
+  --moss: #3e7c59;
+  --saffron: #c98412;
+  --madder: #c2362e;
+
+  --indigo-tint: color-mix(in srgb, var(--indigo) 12%, var(--ground));
+  --moss-tint: color-mix(in srgb, var(--moss) 14%, var(--ground));
+  --saffron-tint: color-mix(in srgb, var(--saffron) 18%, var(--ground));
+  --madder-tint: color-mix(in srgb, var(--madder) 12%, var(--ground));
+
+  --font: "Bricolage Grotesque Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-code: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --step--1: 0.8125rem;
+  --step-0: 0.9375rem;
+  --step-1: 1.125rem;
+  --step-2: 1.75rem;
+  --step-3: clamp(1.5rem, 1.1rem + 1.3vw, 2.25rem);
+  --radius-s: 4px;
+  --radius-m: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0f1020;
+    --surface: #171830;
+    --ink: #e8e8f5;
+    --ink-2: #9a9bb8;
+    --rule: #2a2b4a;
+    --rule-soft: #1e1f3a;
+    --hover: #1c1d38;
+    --indigo: #9aa0ff;
+    --moss: #6fc196;
+    --saffron: #e8b04a;
+    --madder: #ff7a6e;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground: #0f1020;
+  --surface: #171830;
+  --ink: #e8e8f5;
+  --ink-2: #9a9bb8;
+  --rule: #2a2b4a;
+  --rule-soft: #1e1f3a;
+  --hover: #1c1d38;
+  --indigo: #9aa0ff;
+  --moss: #6fc196;
+  --saffron: #e8b04a;
+  --madder: #ff7a6e;
+}
