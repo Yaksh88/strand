@@ -29,6 +29,10 @@ export async function migrate(pool: pg.Pool): Promise<string[]> {
     const files = (await readdir(fileURLToPath(MIGRATIONS_DIR)))
       .filter((name) => name.endsWith(".sql"))
       .sort();
+    if (files.length === 0) {
+      // A broken build that lost the SQL files would otherwise "succeed" and leave no tables.
+      throw new Error(`No migration files found in ${fileURLToPath(MIGRATIONS_DIR)}`);
+    }
     const applied: string[] = [];
     for (const file of files) {
       const version = file.replace(/\.sql$/, "");

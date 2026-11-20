@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "paths": {
+      "@strand/sdk": ["../../packages/sdk/src/index.ts"],
+      "@strand/sdk/testing": ["../../packages/sdk/src/testing.ts"]
+    }
+  },
+  "include": ["src", "tsup.config.ts"]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@strand/chaos",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "chaos": "tsup && node dist/run-chaos.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'chaos is run with: pnpm --filter @strand/chaos chaos'"
+  },
+  "dependencies": {
+    "@strand/sdk": "workspace:*",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "tsup": "^9.0.0"
+  }
+}
