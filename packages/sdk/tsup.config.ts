@@ -11,5 +11,5 @@ export default defineConfig({
   clean: true,
   target: "node22",
   // The migrator reads .sql files next to the bundle.
-  onSuccess: "cp -R src/db/migrations dist/migrations",
+  onSuccess: "mkdir -p dist/migrations && cp src/db/migrations/*.sql dist/migrations/",
 });
